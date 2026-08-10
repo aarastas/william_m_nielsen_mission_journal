@@ -1,0 +1,11 @@
+.venv/
+.DS_Store
+__pycache__/
+images/*
+!images/.gitkeep
+transcriptions/*
+!transcriptions/.gitkeep
+history/*
+!history/.gitkeep
+reviewed/*
+!reviewed/.gitkeep
