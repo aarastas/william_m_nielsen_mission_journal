@@ -41,7 +41,16 @@ app = Flask(__name__)
 app.secret_key = "CHANGE_ME_TO_SOMETHING_RANDOM"
 
 # ---- Paths — consolidated under ~/live/, separate from the ~/dev/ pipeline ----
-BASE_DIR = "/Users/adron/live/william_m_nielsen_mission_journal"
+# Resolution order so the same file works in deployment AND for local testing:
+#   1. JOURNAL_BASE_DIR env var, if set (explicit override)
+#   2. the original deployment path, if it exists on this machine
+#   3. otherwise the directory this script lives in (repo checkout — where the
+#      images/ transcriptions/ reviewed/ history/ folders sit next to the code)
+_DEFAULT_BASE = "/Users/adron/live/william_m_nielsen_mission_journal"
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.environ.get("JOURNAL_BASE_DIR") or (
+    _DEFAULT_BASE if os.path.isdir(_DEFAULT_BASE) else _SCRIPT_DIR
+)
 TRANSCRIPT_DIR = os.path.join(BASE_DIR, "transcriptions")
 JOURNAL_INPUTS = os.path.join(BASE_DIR, "images")
 REVIEWED_DIR = os.path.join(BASE_DIR, "reviewed")
@@ -313,7 +322,8 @@ def history(stem):
                             .replace("{{LABEL}}", v["label"]) \
                             .replace("{{ISO}}", v["iso"])
     if not rows:
-        rows = "<p class='empty'>No saved history yet for this page.</p>"
+        rows = ("<p class='empty'>No revisions yet. The first time you save this page, "
+                "its original transcription is kept here so you can always compare or revert.</p>")
 
     html = PAGE_HISTORY.replace("{{STEM}}", stem).replace("{{ROWS}}", rows)
     return html
@@ -389,39 +399,45 @@ PAGE_LOGIN = """
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     background:var(--paper); color:var(--ink); margin:0; min-height:100vh; min-height:100dvh;
     display:flex; align-items:center; justify-content:center; padding:24px;
+    -webkit-font-smoothing:antialiased;
   }
+  @media (prefers-reduced-motion: reduce){*{transition-duration:.01ms !important}}
   .card{
     background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
-    box-shadow:var(--shadow-md); padding:38px 34px; width:100%; max-width:360px; text-align:center;
+    box-shadow:var(--shadow-md); padding:40px 34px; width:100%; max-width:370px; text-align:center;
   }
   .tag{
     display:inline-block; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-    font-size:11px; letter-spacing:.08em; color:var(--ink-soft); border:1px dashed var(--border);
-    border-radius:999px; padding:3px 10px; margin-bottom:14px;
+    font-size:11px; letter-spacing:.08em; color:var(--ink-soft); border:1px solid var(--border);
+    border-radius:999px; padding:3px 11px; margin-bottom:18px;
   }
-  h2{margin:0 0 4px; font-size:21px; font-weight:700}
-  .sub{color:var(--ink-soft); font-size:13px; margin:0 0 22px}
+  h1{
+    margin:0 0 6px; font-size:29px; line-height:1.15; font-weight:600;
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+  }
+  .sub{color:var(--ink-soft); font-size:14px; margin:0 0 24px}
   input{
-    padding:12px 14px; font-size:16px; margin:0 0 14px; width:100%; border:1px solid var(--border);
+    padding:13px 14px; font-size:16px; margin:0 0 14px; width:100%; border:1px solid var(--border);
     border-radius:10px; background:var(--paper); color:var(--ink);
   }
-  input:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(47,77,104,.15)}
+  input:focus-visible{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(47,77,104,.15)}
   button{
-    padding:13px 20px; font-size:15px; font-weight:600; background:var(--accent); color:#fff;
+    padding:14px 20px; font-size:15px; font-weight:600; background:var(--accent); color:#fff;
     border:none; border-radius:10px; cursor:pointer; width:100%; transition:background .15s;
   }
   button:hover{background:var(--accent-dark)}
+  button:focus-visible{outline:none; box-shadow:0 0 0 3px rgba(47,77,104,.35)}
   .error{color:var(--danger); font-size:13px; margin:0 0 14px}
 </style>
 </head><body>
 <div class="card">
-  <span class="tag">Family Archive</span>
-  <h2>Nielsen Mission Journal</h2>
-  <p class="sub">Enter the family password to review pages</p>
+  <span class="tag">FAMILY ARCHIVE</span>
+  <h1>Nielsen Mission Journal</h1>
+  <p class="sub">Enter the family password to read and review pages.</p>
   {{ERROR}}
   <form method="POST">
-    <input type="password" name="password" placeholder="Password" autofocus>
-    <button type="submit">Enter</button>
+    <input type="password" name="password" placeholder="Family password" autofocus>
+    <button type="submit">Enter archive</button>
   </form>
 </div>
 </body></html>
@@ -462,10 +478,17 @@ PAGE_HISTORY = """
   body{
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     background:var(--paper); color:var(--ink); max-width:720px; margin:0 auto; padding:28px 20px 60px;
+    -webkit-font-smoothing:antialiased;
   }
+  @media (prefers-reduced-motion: reduce){*{transition-duration:.01ms !important}}
+  a:focus-visible,button:focus-visible{outline:none; box-shadow:0 0 0 3px var(--border); border-radius:9px}
   .back{display:inline-flex; align-items:center; gap:6px; color:var(--ink-soft); text-decoration:none; font-size:14px; margin-bottom:18px}
   .back:hover{color:var(--ink)}
-  h2{margin:0 0 20px; font-size:20px}
+  h2{
+    margin:0 0 6px; font-size:26px; font-weight:600;
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+  }
+  .lede{color:var(--ink-soft); font-size:14px; margin:0 0 22px}
   .hrow{
     display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
     background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
@@ -486,7 +509,8 @@ PAGE_HISTORY = """
 </style>
 </head><body>
 <a class="back" href="/page/{{STEM}}">&larr; Back to page {{STEM}}</a>
-<h2>Version history — {{STEM}}</h2>
+<h2>Version history</h2>
+<p class="lede">Every saved revision of page {{STEM}}, newest first. Revert restores an earlier version and keeps the current text in history.</p>
 {{ROWS}}
 </body></html>
 """
@@ -506,10 +530,16 @@ PAGE_HISTORY_VIEW = """
   body{
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     background:var(--paper); color:var(--ink); max-width:720px; margin:0 auto; padding:28px 20px 60px;
+    -webkit-font-smoothing:antialiased;
   }
+  @media (prefers-reduced-motion: reduce){*{transition-duration:.01ms !important}}
+  a:focus-visible{outline:none; box-shadow:0 0 0 3px var(--border); border-radius:9px}
   .back{display:inline-flex; align-items:center; gap:6px; color:var(--ink-soft); text-decoration:none; font-size:14px; margin-bottom:18px}
   .back:hover{color:var(--ink)}
-  h3{margin:0 0 14px; font-size:17px; font-weight:600}
+  h3{
+    margin:0 0 14px; font-size:22px; font-weight:600;
+    font-family:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+  }
   pre{
     white-space:pre-wrap; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
     background:var(--surface); border:1px solid var(--border); color:var(--ink);
@@ -539,6 +569,10 @@ PAGE_REVIEW = """
     --shadow-sm:0 1px 2px rgba(38,32,25,.10);
     --shadow-md:0 10px 28px rgba(38,32,25,.16);
     --radius:14px; --radius-sm:9px;
+    --font-body:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --font-display:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Times New Roman",serif;
+    --font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    --focus:0 0 0 3px var(--accent-soft);
   }
   @media (prefers-color-scheme: dark){
     :root{
@@ -556,9 +590,15 @@ PAGE_REVIEW = """
   html,body{height:100%;margin:0}
   body{
     height:100vh; height:100dvh;
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-family:var(--font-body);
     background:var(--paper); color:var(--ink);
     display:flex; flex-direction:column; overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  /* Modern baseline: visible keyboard focus + honor reduced-motion. */
+  :focus-visible{outline:none; box-shadow:var(--focus); border-radius:var(--radius-sm)}
+  @media (prefers-reduced-motion: reduce){
+    *{transition-duration:.01ms !important; animation-duration:.01ms !important}
   }
 
   /* ---------- topbar ---------- */
@@ -567,11 +607,16 @@ PAGE_REVIEW = """
     padding:12px 18px; display:flex; justify-content:space-between; align-items:center;
     gap:12px; flex-wrap:wrap;
   }
-  .topbar-left{display:flex; align-items:center; gap:10px; min-width:0}
+  .topbar-left{display:flex; align-items:baseline; gap:12px; min-width:0}
+  .wordmark{
+    font-family:var(--font-display); font-size:19px; font-weight:600; letter-spacing:.01em;
+    color:var(--ink); white-space:nowrap; line-height:1;
+  }
+  .wordmark .sep{color:var(--ink-soft); font-weight:400; margin:0 2px}
   .tag{
-    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-    font-size:12px; letter-spacing:.03em; font-weight:600;
-    border:1px dashed var(--border); border-radius:999px; padding:3px 10px;
+    font-family:var(--font-mono);
+    font-size:12px; letter-spacing:.03em; font-weight:600; color:var(--ink-soft);
+    border:1px solid var(--border); border-radius:999px; padding:2px 9px;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:38vw;
   }
   .pagecount{font-size:12px; color:var(--ink-soft); white-space:nowrap}
@@ -595,13 +640,21 @@ PAGE_REVIEW = """
   .pane{flex-shrink:0; width:50%; height:100%; min-height:0}
 
   .pane-image{
-    position:relative; background:#131110; display:flex; align-items:center; justify-content:center;
+    background:#131110; display:flex; flex-direction:column; min-height:0;
+  }
+  /* Shared media area: both panes use .pane-media so their heights match. */
+  .pane-media{
+    flex:1; min-height:0; position:relative;
+    display:flex; align-items:center; justify-content:center;
     padding:18px; overflow:hidden;
   }
   .pane-image img{
     max-width:100%; max-height:100%; width:auto; height:auto; display:block;
     border-radius:6px; box-shadow:0 12px 32px rgba(0,0,0,.5);
   }
+  /* Empty footer under the image mirrors the text pane's controls row so both
+     panes reserve identical vertical space and their media areas stay equal. */
+  .pane-footer{height:52px; flex-shrink:0}
 
   .nav-arrow{
     position:absolute; top:50%; transform:translateY(-50%);
@@ -616,19 +669,23 @@ PAGE_REVIEW = """
   .nav-arrow-left{left:12px}
   .nav-arrow-right{right:12px}
 
-  .pane-text{display:flex; flex-direction:column; min-height:0; padding:14px; background:var(--paper)}
+  .pane-text{display:flex; flex-direction:column; min-height:0; background:var(--paper)}
+  /* Text media area mirrors the image media area (same height, centered
+     content, same 18px padding) so a textarea whose height is set to the
+     rendered image height lines up with the image. */
+  .pane-text .pane-media{align-items:center; justify-content:center; padding:18px 14px}
   textarea{
-    flex:1; min-height:0; width:100%; height:100%;
-    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
-    font-size:16px; line-height:1.35; padding:16px; resize:none; white-space:pre;
+    width:100%; height:100%; min-height:0;
+    font-family:var(--font-mono);
+    font-size:16px; line-height:1.35; padding:0 16px; resize:none; white-space:pre;
     overflow-x:auto; overflow-y:hidden;
     border:1px solid var(--border); border-radius:var(--radius);
     background:var(--surface); color:var(--ink); box-shadow:var(--shadow-sm);
   }
   textarea[readonly]{background:var(--surface-2); color:var(--ink-soft)}
-  textarea:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
+  textarea:focus-visible{outline:none; border-color:var(--accent); box-shadow:var(--focus)}
 
-  .controls{padding-top:12px; display:flex; justify-content:space-between; align-items:center; gap:10px}
+  .controls{height:52px; flex-shrink:0; padding:0 18px 0 14px; display:flex; justify-content:space-between; align-items:center; gap:10px}
   .hint{font-size:12px; color:var(--ink-soft)}
   .btn{
     display:inline-flex; align-items:center; gap:6px; padding:10px 16px; font-size:14px; font-weight:600;
@@ -650,6 +707,8 @@ PAGE_REVIEW = """
     .viewport{width:200%}
     .pane{width:50%}
     .nav-arrow{display:none}
+    .wordmark{display:none}       /* too wide for a phone topbar */
+    .topbar{padding:10px 14px}
 
     .mobile-tabs{
       display:flex; justify-content:center; padding:8px 0; background:var(--surface);
@@ -657,10 +716,11 @@ PAGE_REVIEW = """
     }
     .tabpill{display:inline-flex; background:var(--surface-2); border-radius:999px; padding:3px; gap:2px}
     .tabpill button{
-      border:none; background:transparent; padding:7px 22px; border-radius:999px; font-size:13px;
+      border:none; background:transparent; padding:8px 26px; border-radius:999px; font-size:13px;
       font-weight:600; color:var(--ink-soft); cursor:pointer; transition:.15s;
+      min-height:36px;
     }
-    .tabpill button.active{background:var(--accent); color:#fff}
+    .tabpill button.active{background:var(--accent); color:#fff; box-shadow:var(--shadow-sm)}
 
     .mobile-nav{
       display:flex; justify-content:space-between; gap:10px; padding:10px 14px;
@@ -668,21 +728,23 @@ PAGE_REVIEW = """
       background:var(--surface); border-top:1px solid var(--border);
     }
     .mobile-nav button{
-      flex:1; padding:12px; font-size:14px; font-weight:600; border-radius:var(--radius-sm);
+      flex:1; min-height:48px; padding:12px; font-size:15px; font-weight:600;
+      border-radius:var(--radius-sm);
       border:1px solid var(--border); background:var(--surface-2); color:var(--ink); cursor:pointer;
     }
-    .mobile-nav button:disabled{opacity:.4}
-    .pane-text{padding:10px}
-    textarea{padding:12px}
-    .tag{max-width:55vw}
+    .mobile-nav button:disabled{opacity:.35}
+    .pane-media{padding:10px}
+    textarea{padding:0 12px}
+    .tag{max-width:40vw}
   }
 </style>
 </head><body>
 
 <div class="topbar">
   <div class="topbar-left">
-    <span class="tag">{{STEM}}</span>
-    <span class="pagecount">page {{INDEX}} of {{TOTAL}}</span>
+    <span class="wordmark">Nielsen Mission Journal</span>
+    <span class="tag">p. {{STEM}}</span>
+    <span class="pagecount">{{INDEX}} of {{TOTAL}}</span>
     <span class="status {{STATUS_CLASS}}">{{STATUS}}</span>
   </div>
   <div class="topbar-right">
@@ -694,23 +756,28 @@ PAGE_REVIEW = """
 
 <div class="mobile-tabs">
   <div class="tabpill">
-    <button type="button" id="tabImage" class="active" onclick="setView(0)">Image</button>
-    <button type="button" id="tabText" onclick="setView(1)">Text</button>
+    <button type="button" id="tabImage" class="active" onclick="setView(0)">Scan</button>
+    <button type="button" id="tabText" onclick="setView(1)">Transcription</button>
   </div>
 </div>
 
 <div class="stage">
   <div class="viewport" id="viewport">
     <div class="pane pane-image">
-      <button class="nav-arrow nav-arrow-left" onclick="goPrev()" aria-label="Previous page" {{PREV_DISABLED}}>&#8249;</button>
-      <img src="/image/{{STEM}}" alt="Journal page {{STEM}}">
-      <button class="nav-arrow nav-arrow-right" onclick="goNext()" aria-label="Next page" {{NEXT_DISABLED}}>&#8250;</button>
+      <div class="pane-media">
+        <button class="nav-arrow nav-arrow-left" onclick="goPrev()" aria-label="Previous page" {{PREV_DISABLED}}>&#8249;</button>
+        <img src="/image/{{STEM}}" id="pageImage" alt="Journal page {{STEM}}">
+        <button class="nav-arrow nav-arrow-right" onclick="goNext()" aria-label="Next page" {{NEXT_DISABLED}}>&#8250;</button>
+      </div>
+      <div class="pane-footer"></div>
     </div>
     <div class="pane pane-text">
-      <form method="POST" action="/save/{{STEM}}" id="reviewForm" style="display:flex;flex-direction:column;height:100%">
-        <textarea name="content" id="textArea" wrap="off" {{READONLY_ATTR}}></textarea>
+      <form method="POST" action="/save/{{STEM}}" id="reviewForm" style="display:flex;flex-direction:column;height:100%;min-height:0">
+        <div class="pane-media">
+          <textarea name="content" id="textArea" wrap="off" {{READONLY_ATTR}}></textarea>
+        </div>
         <div class="controls">
-          <span class="hint">&larr; &rarr; or space to navigate (desktop)</span>
+          <span class="hint">Use &larr; &rarr; or space to move between pages</span>
           <span>
             <button type="button" class="btn edit" id="editBtn"
                     style="display:{{EDIT_BTN_DISPLAY}}" onclick="enableEdit()">Edit</button>
@@ -774,32 +841,69 @@ PAGE_REVIEW = """
     saveBtn.style.display = 'none';
   }
 
-  // ---- Fit font size so exactly 30 lines fill the textarea's height ----
+  /* --------------------------------------------------------------------------
+   * TRANSCRIPTION FONT SIZING — why this exists and how it works
+   * --------------------------------------------------------------------------
+   * Goal: the transcription should read like the journal page it mirrors, so we
+   * size the font such that LINES_PER_PAGE (30, the ruled lines on a physical
+   * page) fill the available vertical space exactly. The measurement target
+   * differs by layout because the two layouts show different things:
+   *
+   *   DESKTOP (panes side by side): the scan and the text are BOTH visible, so
+   *   they must line up. We measure the image AS RENDERED — aspect-fit shrinks
+   *   it below its pane on tall/narrow windows — set the textarea's border-box
+   *   to that exact height, and fit 30 lines into it. Result: text line N sits
+   *   at the same height as image line N.
+   *
+   *   MOBILE (one pane at a time): only ONE of image/text is on screen; the
+   *   other is translated off-screen and can report height 0, so the image is
+   *   NOT a reliable measurement target. Line-for-line alignment is also moot
+   *   because you never see both at once. So we fit 30 lines to the on-screen
+   *   TEXT PANE's own height instead, giving a stable, full-height read.
+   *
+   * Vertical padding on the textarea is 0 by design (see CSS) so its content
+   * box equals its border-box height; horizontal padding is read live because
+   * it differs between the desktop and mobile breakpoints.
+   * ------------------------------------------------------------------------ */
+  const pageImage = document.getElementById('pageImage');
+  const LINE_HEIGHT_RATIO = 1.35;
   const LINES_PER_PAGE = 30;
   const MIN_FONT_PX = 10;
   const MAX_FONT_PX = 32;
 
-  function fitFontToLines() {
-    const availableHeight = textArea.clientHeight; // includes padding, box-sizing:border-box handles it
-    if (!availableHeight) return;
+  function fitText() {
+    // Choose the measurement target for this layout (see block comment above).
+    let targetHeight;
+    if (isMobile()) {
+      textArea.style.height = ''; // drop any desktop-set pixel height; CSS fills the pane
+      targetHeight = textArea.getBoundingClientRect().height; // on-screen, fills its pane
+    } else {
+      targetHeight = pageImage.getBoundingClientRect().height; // rendered scan height
+      if (targetHeight) textArea.style.height = targetHeight + 'px'; // match the scan
+    }
+    if (!targetHeight) return; // not laid out yet
 
-    let lineHeightPx = availableHeight / LINES_PER_PAGE;
-    let fontSizePx = (lineHeightPx / 1.35) * 0.97; // small safety margin — no vertical
-                                                    // scrollbar to fall back on now, so
-                                                    // slightly undersize rather than risk
-                                                    // clipping the last line to rounding
+    // Subtract the textarea's own border+padding so 30 lines fit the CONTENT box.
+    const cs = getComputedStyle(textArea);
+    const chrome = parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth)
+                 + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+    const contentHeight = targetHeight - chrome;
 
+    let fontSizePx = (contentHeight / LINES_PER_PAGE) / LINE_HEIGHT_RATIO;
     fontSizePx = Math.max(MIN_FONT_PX, Math.min(MAX_FONT_PX, fontSizePx));
-    lineHeightPx = fontSizePx * 1.35;
 
     textArea.style.fontSize = fontSizePx + 'px';
-    textArea.style.lineHeight = lineHeightPx + 'px';
+    textArea.style.lineHeight = (fontSizePx * LINE_HEIGHT_RATIO) + 'px';
   }
 
-  window.addEventListener('load', fitFontToLines);
-  window.addEventListener('resize', fitFontToLines);
-  window.addEventListener('orientationchange', fitFontToLines);
-  fitFontToLines(); // run immediately too, don't wait for full page load (image loading shouldn't delay text sizing)
+  // The image's rendered size isn't known until it decodes, so re-fit on its
+  // load event — not just window load — plus resize/orientation changes.
+  // setView() also calls fitText() when switching to the text tab on mobile.
+  if (pageImage.complete) fitText();
+  pageImage.addEventListener('load', fitText);
+  window.addEventListener('load', fitText);
+  window.addEventListener('resize', fitText);
+  window.addEventListener('orientationchange', fitText);
 
   // ---- Keyboard navigation (desktop) — ignored while actively editing ----
   document.addEventListener('keydown', function(e) {
@@ -829,6 +933,7 @@ PAGE_REVIEW = """
       viewport.style.transform = 'translateX(' + (-50 * currentView) + '%)';
       tabImage.classList.toggle('active', currentView === 0);
       tabText.classList.toggle('active', currentView === 1);
+      if (currentView === 1) fitText(); // text pane just became visible — size it now
     }
   }
 
