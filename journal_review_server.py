@@ -175,7 +175,7 @@ def login():
         if request.form.get("password") == REVIEW_PASSWORD:
             session["logged_in"] = True
             return redirect(url_for("root"))
-        return PAGE_LOGIN.replace("{{ERROR}}", "<p style='color:red'>Wrong password.</p>")
+        return PAGE_LOGIN.replace("{{ERROR}}", "<p class='error'>Wrong password.</p>")
     return PAGE_LOGIN.replace("{{ERROR}}", "")
 
 
@@ -223,6 +223,7 @@ def page(stem):
         # of that specific edit. Floor at v0.1 rather than show v0.0.
         version_count = 1
     status_label = ("Reviewed" if reviewed else "Not yet reviewed") + f" v0.{version_count}"
+    progress_pct = round((nav["index"] + 1) / nav["total"] * 100) if nav["total"] else 0
 
     html = (
         PAGE_REVIEW
@@ -233,12 +234,13 @@ def page(stem):
         .replace("{{STATUS}}", status_label)
         .replace("{{STATUS_CLASS}}", "reviewed" if reviewed else "pending")
         .replace("{{READONLY_ATTR}}", "readonly")
-        .replace("{{EDIT_BTN_DISPLAY}}", "inline-block")
+        .replace("{{EDIT_BTN_DISPLAY}}", "inline-flex")
         .replace("{{SAVE_BTN_DISPLAY}}", "none")
         .replace("{{PREV_STEM}}", nav["prev"] or "")
         .replace("{{NEXT_STEM}}", nav["next"] or "")
         .replace("{{PREV_DISABLED}}", "" if nav["prev"] else "disabled")
         .replace("{{NEXT_DISABLED}}", "" if nav["next"] else "disabled")
+        .replace("{{PROGRESS_PCT}}", str(progress_pct))
     )
     return html
 
@@ -311,7 +313,7 @@ def history(stem):
                             .replace("{{LABEL}}", v["label"]) \
                             .replace("{{ISO}}", v["iso"])
     if not rows:
-        rows = "<p>No saved history yet for this page.</p>"
+        rows = "<p class='empty'>No saved history yet for this page.</p>"
 
     html = PAGE_HISTORY.replace("{{STEM}}", stem).replace("{{ROWS}}", rows)
     return html
@@ -367,31 +369,75 @@ def revert(stem, ts):
 
 PAGE_LOGIN = """
 <!DOCTYPE html><html><head><title>Old Man Willie Mission Journal — Login</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>body{font-family:sans-serif;max-width:400px;margin:100px auto;text-align:center}
-input{padding:8px;font-size:16px;margin:10px 0;width:100%;box-sizing:border-box}
-button{padding:10px 20px;font-size:16px;background:green;color:white;border:none;cursor:pointer}</style>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<style>
+  :root{
+    --paper:#ece4d1; --surface:#fbf8f1; --border:#d9cdb0; --ink:#262019; --ink-soft:#7d7263;
+    --accent:#2f4d68; --accent-dark:#203548; --danger:#a3402b;
+    --shadow-md:0 20px 44px rgba(38,32,25,.16); --radius:16px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --paper:#1b1812; --surface:#242019; --border:#3a3327; --ink:#ece4d1; --ink-soft:#a89b83;
+      --accent:#8fb4d1; --accent-dark:#b7d1e6; --danger:#e08469;
+      --shadow-md:0 20px 44px rgba(0,0,0,.55);
+    }
+  }
+  *{box-sizing:border-box}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--paper); color:var(--ink); margin:0; min-height:100vh; min-height:100dvh;
+    display:flex; align-items:center; justify-content:center; padding:24px;
+  }
+  .card{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    box-shadow:var(--shadow-md); padding:38px 34px; width:100%; max-width:360px; text-align:center;
+  }
+  .tag{
+    display:inline-block; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:11px; letter-spacing:.08em; color:var(--ink-soft); border:1px dashed var(--border);
+    border-radius:999px; padding:3px 10px; margin-bottom:14px;
+  }
+  h2{margin:0 0 4px; font-size:21px; font-weight:700}
+  .sub{color:var(--ink-soft); font-size:13px; margin:0 0 22px}
+  input{
+    padding:12px 14px; font-size:16px; margin:0 0 14px; width:100%; border:1px solid var(--border);
+    border-radius:10px; background:var(--paper); color:var(--ink);
+  }
+  input:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(47,77,104,.15)}
+  button{
+    padding:13px 20px; font-size:15px; font-weight:600; background:var(--accent); color:#fff;
+    border:none; border-radius:10px; cursor:pointer; width:100%; transition:background .15s;
+  }
+  button:hover{background:var(--accent-dark)}
+  .error{color:var(--danger); font-size:13px; margin:0 0 14px}
+</style>
 </head><body>
-<h2>Nielsen Journal — Family Review</h2>
-{{ERROR}}
-<form method="POST">
-<input type="password" name="password" placeholder="Enter the family password" autofocus>
-<button type="submit">Enter</button>
-</form>
+<div class="card">
+  <span class="tag">Family Archive</span>
+  <h2>Nielsen Mission Journal</h2>
+  <p class="sub">Enter the family password to review pages</p>
+  {{ERROR}}
+  <form method="POST">
+    <input type="password" name="password" placeholder="Password" autofocus>
+    <button type="submit">Enter</button>
+  </form>
+</div>
 </body></html>
 """
 
 HISTORY_ROW = """
 <div class="hrow">
-  <div>
-    <b>{{LABEL}}</b><br>
-    <span class="ts">{{ISO}}</span>
+  <div class="hrow-meta">
+    <span class="hrow-label">{{LABEL}}</span>
+    <span class="hrow-ts">{{ISO}}</span>
   </div>
-  <div>
-    <a href="/history/{{STEM}}/{{TS}}">View</a>
+  <div class="hrow-actions">
+    <a class="btn ghost" href="/history/{{STEM}}/{{TS}}">View</a>
     <form method="POST" action="/revert/{{STEM}}/{{TS}}" style="display:inline"
           onsubmit="return confirm('Revert to this version? Current text will be saved to history first.');">
-      <button type="submit">Revert to this</button>
+      <button type="submit" class="btn danger">Revert</button>
     </form>
   </div>
 </div>
@@ -399,11 +445,44 @@ HISTORY_ROW = """
 
 PAGE_HISTORY = """
 <!DOCTYPE html><html><head><title>History — {{STEM}}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
 <style>
-  body{font-family:sans-serif;max-width:700px;margin:30px auto;padding:0 20px}
-  .hrow{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ddd;padding:12px 0}
-  .ts{color:#666;font-size:13px}
-  a.back{display:inline-block;margin-bottom:20px}
+  :root{
+    --paper:#ece4d1; --surface:#fbf8f1; --border:#d9cdb0; --ink:#262019; --ink-soft:#7d7263;
+    --accent:#2f4d68; --danger:#a3402b; --danger-soft:#f5e2dc; --radius:14px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --paper:#1b1812; --surface:#242019; --border:#3a3327; --ink:#ece4d1; --ink-soft:#a89b83;
+      --accent:#8fb4d1; --danger:#e08469; --danger-soft:#3a231d;
+    }
+  }
+  *{box-sizing:border-box}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--paper); color:var(--ink); max-width:720px; margin:0 auto; padding:28px 20px 60px;
+  }
+  .back{display:inline-flex; align-items:center; gap:6px; color:var(--ink-soft); text-decoration:none; font-size:14px; margin-bottom:18px}
+  .back:hover{color:var(--ink)}
+  h2{margin:0 0 20px; font-size:20px}
+  .hrow{
+    display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:14px 16px; margin-bottom:10px;
+  }
+  .hrow-label{display:block; font-weight:600; font-size:14px}
+  .hrow-ts{display:block; color:var(--ink-soft); font-size:12px; margin-top:2px}
+  .hrow-actions{display:flex; gap:8px}
+  .btn{
+    display:inline-flex; align-items:center; padding:8px 14px; border-radius:9px; font-size:13px;
+    font-weight:600; text-decoration:none; border:none; cursor:pointer;
+  }
+  .btn.ghost{background:var(--paper); color:var(--ink); border:1px solid var(--border)}
+  .btn.ghost:hover{background:var(--border)}
+  .btn.danger{background:var(--danger-soft); color:var(--danger)}
+  .btn.danger:hover{opacity:.85}
+  .empty{color:var(--ink-soft); font-size:14px}
 </style>
 </head><body>
 <a class="back" href="/page/{{STEM}}">&larr; Back to page {{STEM}}</a>
@@ -414,10 +493,28 @@ PAGE_HISTORY = """
 
 PAGE_HISTORY_VIEW = """
 <!DOCTYPE html><html><head><title>Version {{TS}} — {{STEM}}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
 <style>
-  body{font-family:sans-serif;max-width:700px;margin:30px auto;padding:0 20px}
-  pre{white-space:pre-wrap;font-family:Consolas,monospace;background:#f7f7f7;padding:15px;border-radius:6px}
-  a.back{display:inline-block;margin-bottom:20px}
+  :root{
+    --paper:#ece4d1; --surface:#fbf8f1; --border:#d9cdb0; --ink:#262019; --ink-soft:#7d7263; --radius:14px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --paper:#1b1812; --surface:#242019; --border:#3a3327; --ink:#ece4d1; --ink-soft:#a89b83; }
+  }
+  *{box-sizing:border-box}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--paper); color:var(--ink); max-width:720px; margin:0 auto; padding:28px 20px 60px;
+  }
+  .back{display:inline-flex; align-items:center; gap:6px; color:var(--ink-soft); text-decoration:none; font-size:14px; margin-bottom:18px}
+  .back:hover{color:var(--ink)}
+  h3{margin:0 0 14px; font-size:17px; font-weight:600}
+  pre{
+    white-space:pre-wrap; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    background:var(--surface); border:1px solid var(--border); color:var(--ink);
+    padding:18px; border-radius:var(--radius); line-height:1.5; font-size:14px;
+  }
 </style>
 </head><body>
 <a class="back" href="/history/{{STEM}}">&larr; Back to history</a>
@@ -428,77 +525,186 @@ PAGE_HISTORY_VIEW = """
 
 PAGE_REVIEW = """
 <!DOCTYPE html><html><head><title>Old Man Willie Mission Journal — {{STEM}}</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
 
 <style>
-  * { box-sizing: border-box; }
-  html, body { height: -webkit-fill-available;; margin: 0; }
-  body{font-family:sans-serif;padding:0;height:100vh;display:flex;flex-direction:column;overflow:hidden}
-  .topbar{background:#f0f0f0;padding:10px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
-  .topbar .status{padding:2px 10px;border-radius:10px;font-size:12px;font-weight:bold}
-  .status.reviewed{background:#d4edda;color:#155724}
-  .status.pending{background:#fff3cd;color:#856404}
-  .topbar a{margin-left:12px}
+  :root{
+    --paper:#ece4d1; --surface:#fbf8f1; --surface-2:#f2ead9; --border:#d9cdb0;
+    --ink:#262019; --ink-soft:#7d7263;
+    --accent:#2f4d68; --accent-dark:#203548; --accent-soft:#dfe6ec;
+    --reviewed-bg:#dcefe1; --reviewed-text:#2f6b46;
+    --pending-bg:#f3e6c2; --pending-text:#8a6a1c;
+    --danger:#a3402b;
+    --shadow-sm:0 1px 2px rgba(38,32,25,.10);
+    --shadow-md:0 10px 28px rgba(38,32,25,.16);
+    --radius:14px; --radius-sm:9px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --paper:#1b1812; --surface:#242019; --surface-2:#2b261d; --border:#3a3327;
+      --ink:#ece4d1; --ink-soft:#a89b83;
+      --accent:#8fb4d1; --accent-dark:#b7d1e6; --accent-soft:#2a3945;
+      --reviewed-bg:#203a29; --reviewed-text:#7cd39a;
+      --pending-bg:#3a2f16; --pending-text:#e3b563;
+      --danger:#e08469;
+      --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+      --shadow-md:0 10px 28px rgba(0,0,0,.5);
+    }
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    height:100vh; height:100dvh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--paper); color:var(--ink);
+    display:flex; flex-direction:column; overflow:hidden;
+  }
 
-  .swipe-outer{flex:1;min-height:0;position:relative;overflow:hidden}
-  .swipe-container{display:flex;height:100%;min-height:0;transition:transform .25s ease}
-  .pane{flex-shrink:0;width:50%;height:100%;min-height:0;overflow:auto}
-  .pane-image{background:#333;display:flex;align-items:flex-start;justify-content:center;padding:10px}
-  .pane-image img{max-width:100%;height:auto}
-  .pane-text{display:flex;flex-direction:column;min-height:0;padding:10px}
-  textarea{flex:1;min-height:0;font-family:Consolas,monospace;font-size:16px;line-height:1.35;padding:10px;width:100%;height:100%;resize:none;white-space:pre;overflow-x:auto;overflow-y:hidden}
-  textarea[readonly]{background:#fafafa;color:#333}
+  /* ---------- topbar ---------- */
+  .topbar{
+    background:var(--surface); border-bottom:1px solid var(--border);
+    padding:12px 18px; display:flex; justify-content:space-between; align-items:center;
+    gap:12px; flex-wrap:wrap;
+  }
+  .topbar-left{display:flex; align-items:center; gap:10px; min-width:0}
+  .tag{
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:12px; letter-spacing:.03em; font-weight:600;
+    border:1px dashed var(--border); border-radius:999px; padding:3px 10px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:38vw;
+  }
+  .pagecount{font-size:12px; color:var(--ink-soft); white-space:nowrap}
+  .status{padding:3px 10px; border-radius:999px; font-size:11px; font-weight:700; letter-spacing:.02em; white-space:nowrap}
+  .status.reviewed{background:var(--reviewed-bg); color:var(--reviewed-text)}
+  .status.pending{background:var(--pending-bg); color:var(--pending-text)}
+  .topbar-right{display:flex; align-items:center; gap:4px}
+  .iconlink{
+    display:inline-flex; align-items:center; gap:6px; padding:7px 12px;
+    border-radius:var(--radius-sm); font-size:13px; color:var(--ink-soft);
+    text-decoration:none; border:1px solid transparent; transition:.15s;
+  }
+  .iconlink:hover{background:var(--surface-2); color:var(--ink); border-color:var(--border)}
 
-  .controls{position:relative;z-index:20;padding-top:10px;display:flex;justify-content:space-between;align-items:center}
-  .controls .hint{font-size:12px;color:#777}
-  button{padding:10px 18px;font-size:15px;border:none;cursor:pointer;border-radius:4px;margin-left:8px}
-  button.save{background:green;color:white}
-  button.edit{background:#0069d9;color:white}
-  button.cancel{background:#aaa;color:white}
+  .progress{height:3px; background:var(--border)}
+  .progress-bar{height:100%; background:var(--accent); transition:width .3s ease}
 
-  /* Desktop side-arrow click zones */
-  .side-arrow{position:fixed;top:0;bottom:0;width:50px;display:flex;align-items:center;justify-content:center;
-              font-size:28px;color:rgba(0,0,0,0.25);cursor:pointer;z-index:10;user-select:none}
-  .side-arrow:hover{color:rgba(0,0,0,0.5)}
-  .side-arrow.left{left:0}
-  .side-arrow.right{right:0}
+  /* ---------- stage ---------- */
+  .stage{flex:1; min-height:0; position:relative; overflow:hidden}
+  .viewport{display:flex; height:100%; min-height:0; transition:transform .3s cubic-bezier(.4,0,.2,1)}
+  .pane{flex-shrink:0; width:50%; height:100%; min-height:0}
 
+  .pane-image{
+    position:relative; background:#131110; display:flex; align-items:center; justify-content:center;
+    padding:18px; overflow:hidden;
+  }
+  .pane-image img{
+    max-width:100%; max-height:100%; width:auto; height:auto; display:block;
+    border-radius:6px; box-shadow:0 12px 32px rgba(0,0,0,.5);
+  }
+
+  .nav-arrow{
+    position:absolute; top:50%; transform:translateY(-50%);
+    width:44px; height:44px; border-radius:50%; border:none; cursor:pointer;
+    background:rgba(19,17,16,.55); color:#fff; font-size:20px; line-height:1;
+    display:flex; align-items:center; justify-content:center;
+    backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px);
+    transition:background .15s; z-index:5;
+  }
+  .nav-arrow:hover{background:rgba(19,17,16,.85)}
+  .nav-arrow:disabled{opacity:0; pointer-events:none}
+  .nav-arrow-left{left:12px}
+  .nav-arrow-right{right:12px}
+
+  .pane-text{display:flex; flex-direction:column; min-height:0; padding:14px; background:var(--paper)}
+  textarea{
+    flex:1; min-height:0; width:100%; height:100%;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    font-size:16px; line-height:1.35; padding:16px; resize:none; white-space:pre;
+    overflow-x:auto; overflow-y:hidden;
+    border:1px solid var(--border); border-radius:var(--radius);
+    background:var(--surface); color:var(--ink); box-shadow:var(--shadow-sm);
+  }
+  textarea[readonly]{background:var(--surface-2); color:var(--ink-soft)}
+  textarea:focus{outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft)}
+
+  .controls{padding-top:12px; display:flex; justify-content:space-between; align-items:center; gap:10px}
+  .hint{font-size:12px; color:var(--ink-soft)}
+  .btn{
+    display:inline-flex; align-items:center; gap:6px; padding:10px 16px; font-size:14px; font-weight:600;
+    border:none; border-radius:var(--radius-sm); cursor:pointer; transition:.15s; box-shadow:var(--shadow-sm);
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn.save{background:var(--accent); color:#fff}
+  .btn.save:hover{background:var(--accent-dark)}
+  .btn.edit{background:var(--surface); color:var(--ink); border:1px solid var(--border)}
+  .btn.edit:hover{background:var(--surface-2)}
+  .btn.cancel{background:transparent; color:var(--ink-soft); box-shadow:none}
+  .btn.cancel:hover{color:var(--danger)}
+
+  /* ---------- mobile tabs + bottom nav ---------- */
+  .mobile-tabs{display:none}
   .mobile-nav{display:none}
 
   @media (max-width:800px){
-    .swipe-container{width:200%}
+    .viewport{width:200%}
     .pane{width:50%}
-    .side-arrow{display:none}
-    .mobile-nav{display:flex;justify-content:space-between;padding:10px;background:#f0f0f0}
-    .mobile-nav {position:sticky;bottom:env(safe-area-inset-bottom)}
-    .mobile-nav button{flex:1;margin:0 5px}
-    .dots{text-align:center;padding:4px;background:#f0f0f0;font-size:12px;color:#888}
-  }
-  @media (min-width:801px){
-    .dots{display:none}
+    .nav-arrow{display:none}
+
+    .mobile-tabs{
+      display:flex; justify-content:center; padding:8px 0; background:var(--surface);
+      border-bottom:1px solid var(--border);
+    }
+    .tabpill{display:inline-flex; background:var(--surface-2); border-radius:999px; padding:3px; gap:2px}
+    .tabpill button{
+      border:none; background:transparent; padding:7px 22px; border-radius:999px; font-size:13px;
+      font-weight:600; color:var(--ink-soft); cursor:pointer; transition:.15s;
+    }
+    .tabpill button.active{background:var(--accent); color:#fff}
+
+    .mobile-nav{
+      display:flex; justify-content:space-between; gap:10px; padding:10px 14px;
+      padding-bottom:calc(10px + env(safe-area-inset-bottom));
+      background:var(--surface); border-top:1px solid var(--border);
+    }
+    .mobile-nav button{
+      flex:1; padding:12px; font-size:14px; font-weight:600; border-radius:var(--radius-sm);
+      border:1px solid var(--border); background:var(--surface-2); color:var(--ink); cursor:pointer;
+    }
+    .mobile-nav button:disabled{opacity:.4}
+    .pane-text{padding:10px}
+    textarea{padding:12px}
+    .tag{max-width:55vw}
   }
 </style>
 </head><body>
 
 <div class="topbar">
-  <span><b>{{STEM}}</b> &nbsp; (page {{INDEX}} of {{TOTAL}}) &nbsp;
+  <div class="topbar-left">
+    <span class="tag">{{STEM}}</span>
+    <span class="pagecount">page {{INDEX}} of {{TOTAL}}</span>
     <span class="status {{STATUS_CLASS}}">{{STATUS}}</span>
-  </span>
-  <span>
-    <a href="/history/{{STEM}}">History</a>
-    <a href="/logout">Log out</a>
-  </span>
+  </div>
+  <div class="topbar-right">
+    <a class="iconlink" href="/history/{{STEM}}">History</a>
+    <a class="iconlink" href="/logout">Log out</a>
+  </div>
+</div>
+<div class="progress"><div class="progress-bar" style="width:{{PROGRESS_PCT}}%"></div></div>
+
+<div class="mobile-tabs">
+  <div class="tabpill">
+    <button type="button" id="tabImage" class="active" onclick="setView(0)">Image</button>
+    <button type="button" id="tabText" onclick="setView(1)">Text</button>
+  </div>
 </div>
 
-<div class="dots" id="dots">Image &nbsp;&#9679;&#9675;&nbsp; Text — swipe to switch</div>
-
-<div class="swipe-outer">
-  <div class="side-arrow left" onclick="goPrev()">&#8249;</div>
-  <div class="side-arrow right" onclick="goNext()">&#8250;</div>
-
-  <div class="swipe-container" id="swipeContainer">
+<div class="stage">
+  <div class="viewport" id="viewport">
     <div class="pane pane-image">
-      <img src="/image/{{STEM}}" alt="journal page">
+      <button class="nav-arrow nav-arrow-left" onclick="goPrev()" aria-label="Previous page" {{PREV_DISABLED}}>&#8249;</button>
+      <img src="/image/{{STEM}}" alt="Journal page {{STEM}}">
+      <button class="nav-arrow nav-arrow-right" onclick="goNext()" aria-label="Next page" {{NEXT_DISABLED}}>&#8250;</button>
     </div>
     <div class="pane pane-text">
       <form method="POST" action="/save/{{STEM}}" id="reviewForm" style="display:flex;flex-direction:column;height:100%">
@@ -506,11 +712,11 @@ PAGE_REVIEW = """
         <div class="controls">
           <span class="hint">&larr; &rarr; or space to navigate (desktop)</span>
           <span>
-            <button type="button" class="edit" id="editBtn"
+            <button type="button" class="btn edit" id="editBtn"
                     style="display:{{EDIT_BTN_DISPLAY}}" onclick="enableEdit()">Edit</button>
-            <button type="button" class="cancel" id="cancelBtn"
+            <button type="button" class="btn cancel" id="cancelBtn"
                     style="display:none" onclick="cancelEdit()">Cancel</button>
-            <button type="submit" class="save" id="saveBtn"
+            <button type="submit" class="btn save" id="saveBtn"
                     style="display:{{SAVE_BTN_DISPLAY}}">Save</button>
           </span>
         </div>
@@ -529,21 +735,17 @@ PAGE_REVIEW = """
   const NEXT_STEM = "{{NEXT_STEM}}";
 
   function goPrev() {
-      if (PREV_STEM) {
-          // Save current view before navigation
-          if (isMobile()) localStorage.setItem("journalView", currentView);
-          window.location = "/page/" + PREV_STEM;
-      }
+    if (PREV_STEM) {
+      if (isMobile()) localStorage.setItem("journalView", currentView);
+      window.location = "/page/" + PREV_STEM;
+    }
   }
-
   function goNext() {
-      if (NEXT_STEM) {
-          // Save current view before navigation
-          if (isMobile()) localStorage.setItem("journalView", currentView);
-          window.location = "/page/" + NEXT_STEM;
-      }
+    if (NEXT_STEM) {
+      if (isMobile()) localStorage.setItem("journalView", currentView);
+      window.location = "/page/" + NEXT_STEM;
+    }
   }
-
 
   // ---- Edit lock toggle ----
   const textArea = document.getElementById('textArea');
@@ -561,13 +763,13 @@ PAGE_REVIEW = """
     textArea.readOnly = false;
     textArea.focus();
     editBtn.style.display = 'none';
-    cancelBtn.style.display = 'inline-block';
-    saveBtn.style.display = 'inline-block';
+    cancelBtn.style.display = 'inline-flex';
+    saveBtn.style.display = 'inline-flex';
   }
   function cancelEdit() {
     textArea.value = originalValue;
     textArea.readOnly = true;
-    editBtn.style.display = 'inline-block';
+    editBtn.style.display = 'inline-flex';
     cancelBtn.style.display = 'none';
     saveBtn.style.display = 'none';
   }
@@ -611,46 +813,39 @@ PAGE_REVIEW = """
     }
   });
 
-  // ---- Mobile swipe: toggles image/text view, does NOT change page ----
-  const swipeContainer = document.getElementById('swipeContainer');
-  const dots = document.getElementById('dots');
+  // ---- Mobile tabs / swipe: toggles image/text view, does NOT change page ----
+  const viewport = document.getElementById('viewport');
+  const tabImage = document.getElementById('tabImage');
+  const tabText = document.getElementById('tabText');
   let currentView = 0; // 0 = image, 1 = text
-  // Restore mobile view if present
-  function restoreMobileView() {
-    const savedView = localStorage.getItem("journalView");
-    if (savedView !== null) {
-      currentView = parseInt(savedView, 10);
-      setView(currentView);
-    }
-  }
-
-  window.addEventListener("load", () => {
-    setTimeout(restoreMobileView, 50);   // iOS Safari needs this
-  });
-
   let touchStartX = null;
 
   function isMobile() { return window.matchMedia('(max-width: 800px)').matches; }
+
   function setView(v) {
-      currentView = Math.max(0, Math.min(1, v));
-      // Save view for next page load (mobile only)
-      if (isMobile()) {
-         localStorage.setItem("journalView", currentView);
-      }
-      swipeContainer.style.transform = 'translateX(' + (-50 * currentView) + '%)';
-      if (isMobile()) {
-          dots.innerHTML = currentView === 0
-              ? 'Image &nbsp;&#9679;&#9675;&nbsp; Text — swipe to switch'
-              : 'Image &nbsp;&#9675;&#9679;&nbsp; Text — swipe to switch';
-      }
+    currentView = Math.max(0, Math.min(1, v));
+    if (isMobile()) {
+      localStorage.setItem("journalView", currentView);
+      viewport.style.transform = 'translateX(' + (-50 * currentView) + '%)';
+      tabImage.classList.toggle('active', currentView === 0);
+      tabText.classList.toggle('active', currentView === 1);
+    }
   }
 
+  // Restore last-viewed pane (image/text) on mobile after navigating pages
+  function restoreMobileView() {
+    const savedView = localStorage.getItem("journalView");
+    if (savedView !== null) { setView(parseInt(savedView, 10)); }
+  }
+  window.addEventListener('load', function() {
+    setTimeout(restoreMobileView, 50); // iOS Safari needs this
+  });
 
-  document.querySelector('.swipe-outer').addEventListener('touchstart', function(e) {
+  document.querySelector('.stage').addEventListener('touchstart', function(e) {
     touchStartX = e.changedTouches[0].screenX;
   }, {passive: true});
 
-  document.querySelector('.swipe-outer').addEventListener('touchend', function(e) {
+  document.querySelector('.stage').addEventListener('touchend', function(e) {
     if (touchStartX === null || !isMobile()) return;
     const deltaX = e.changedTouches[0].screenX - touchStartX;
     if (Math.abs(deltaX) > 50) {
